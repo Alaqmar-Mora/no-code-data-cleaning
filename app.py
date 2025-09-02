@@ -1,43 +1,64 @@
 import streamlit as st
 import pandas as pd
 
-st.title("🧹 No-Code Data Cleaning Prototype")
+# --- Branding ---
+st.set_page_config(page_title="No-Code Data Cleaner", page_icon="🧹", layout="wide")
+st.title("🧹 No-Code Data Cleaning Platform")
+st.markdown("Easily clean your datasets without writing a single line of code.")
 
-# Upload file
-uploaded_file = st.file_uploader("Upload your CSV/Excel file", type=["csv", "xlsx"])
+# --- File Upload ---
+uploaded_file = st.file_uploader("📂 Upload your CSV or Excel file", type=["csv", "xlsx"])
 
 if uploaded_file:
-    # Read file
+    # Load file
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
     else:
         df = pd.read_excel(uploaded_file)
 
-    st.subheader("📊 Preview of Data")
-    st.dataframe(df.head())
+    # Show raw preview
+    st.subheader("📊 Raw Data Preview")
+    st.dataframe(df.head(20), use_container_width=True)
 
-    # Cleaning Options
-    st.subheader("⚙️ Data Cleaning Options")
+    # Sidebar Cleaning Options
+    st.sidebar.header("⚙️ Cleaning Options")
 
-    if st.button("Remove Duplicates"):
+    if st.sidebar.button("Remove Duplicates"):
         df = df.drop_duplicates()
-        st.success("✅ Duplicates removed!")
+        st.sidebar.success("✅ Duplicates removed!")
 
-    if st.button("Drop Missing Values"):
+    if st.sidebar.button("Drop Missing Values"):
         df = df.dropna()
-        st.success("✅ Missing values dropped!")
+        st.sidebar.success("✅ Missing values dropped!")
 
-    if st.button("Fill Missing with 0"):
+    if st.sidebar.button("Fill Missing with 0"):
         df = df.fillna(0)
-        st.success("✅ Missing values filled with 0!")
+        st.sidebar.success("✅ Missing values filled with 0!")
 
-    if st.button("Lowercase Text"):
+    if st.sidebar.button("Standardize Text (lowercase)"):
         df = df.applymap(lambda s: s.lower().strip() if type(s) == str else s)
-        st.success("✅ Text standardized to lowercase!")
+        st.sidebar.success("✅ Text standardized!")
 
+    if st.sidebar.button("Convert Dates (YYYY-MM-DD)"):
+        for col in df.select_dtypes(include=['object']):
+            try:
+                df[col] = pd.to_datetime(df[col], errors='ignore').dt.strftime('%Y-%m-%d')
+            except:
+                pass
+        st.sidebar.success("✅ Dates standardized!")
+
+    # Show cleaned preview
     st.subheader("🔍 Cleaned Data Preview")
-    st.dataframe(df.head())
+    st.dataframe(df.head(20), use_container_width=True)
 
-    # Download cleaned file
+    # Download option
     csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("📥 Download Cleaned CSV", data=csv, file_name="cleaned_data.csv", mime="text/csv")
+    st.download_button(
+        label="📥 Download Cleaned Data (CSV)",
+        data=csv,
+        file_name="cleaned_data.csv",
+        mime="text/csv"
+    )
+
+else:
+    st.info("👆 Upload a CSV or Excel file to get started.")
