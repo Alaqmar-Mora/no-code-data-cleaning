@@ -690,6 +690,7 @@ def main():
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📁 Upload Data", "🧹 Clean Data", "📊 Results", "📋 Templates", "📈 Analytics"])
     
     with tab1:
+        render_upload_tab(user_manager, user_data)
 def render_upload_tab(user_manager, user_data):
     """Render the upload data tab"""
     st.markdown("### 📁 Upload Your Data")
@@ -1189,3 +1190,4 @@ def render_analytics_tab(user_data):
 
 if __name__ == "__main__":
     main()
+
