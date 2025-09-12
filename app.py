@@ -593,15 +593,62 @@ def main():
                 st.markdown("### 📋 Cleaned Data Preview")
                 st.dataframe(st.session_state.cleaned_df, use_container_width=True, height=400)
                 
-                # Download button
-                csv_data = st.session_state.cleaned_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Cleaned Data",
-                    data=csv_data,
-                    file_name=f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    type="primary"
-                )
+                # Download buttons for multiple formats
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    # CSV Download
+                    csv_data = st.session_state.cleaned_df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download as CSV",
+                        data=csv_data,
+                        file_name=f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                
+                with col2:
+                    # Excel Download
+                    def create_excel_download():
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            st.session_state.cleaned_df.to_excel(writer, sheet_name='Cleaned_Data', index=False)
+                            
+                            # Add a summary sheet
+                            summary_data = {
+                                'Metric': ['Original Rows', 'Cleaned Rows', 'Original Columns', 'Cleaned Columns', 'Missing Values Removed'],
+                                'Value': [
+                                    len(st.session_state.df),
+                                    len(st.session_state.cleaned_df),
+                                    len(st.session_state.df.columns),
+                                    len(st.session_state.cleaned_df.columns),
+                                    st.session_state.df.isnull().sum().sum() - st.session_state.cleaned_df.isnull().sum().sum()
+                                ]
+                            }
+                            summary_df = pd.DataFrame(summary_data)
+                            summary_df.to_excel(writer, sheet_name='Cleaning_Summary', index=False)
+                        
+                        return output.getvalue()
+                    
+                    excel_data = create_excel_download()
+                    st.download_button(
+                        label="📊 Download as Excel",
+                        data=excel_data,
+                        file_name=f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                
+                with col3:
+                    # JSON Download (for API integration)
+                    json_data = st.session_state.cleaned_df.to_json(orient='records', indent=2)
+                    st.download_button(
+                        label="🔗 Download as JSON",
+                        data=json_data,
+                        file_name=f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
             else:
                 st.info("No cleaned data available. Please run cleaning operations first.")
         
