@@ -452,6 +452,14 @@ def render_authentication():
 
 def render_dashboard():
     """Render user dashboard with usage stats"""
+    # Safety check for user data
+    if not st.session_state.current_user or not st.session_state.user_data:
+        st.error("Session expired. Please sign in again.")
+        st.session_state.current_user = None
+        st.session_state.user_data = {}
+        st.rerun()
+        return
+    
     user_data = st.session_state.user_data
     user_manager = UserManager()
     plan_limits = user_manager.get_plan_limits(user_data['plan'])
