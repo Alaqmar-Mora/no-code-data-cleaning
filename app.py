@@ -621,7 +621,7 @@ def main():
         st.session_state.show_settings = False
     
     # Check if user is logged in
-    if st.session_state.current_user is None:
+    if safe_get_session_state('current_user', None) is None:
         # Show landing page with authentication
         st.markdown("""
         <div class="main-header">
@@ -1190,4 +1190,5 @@ def render_analytics_tab(user_data):
 
 if __name__ == "__main__":
     main()
+
 
