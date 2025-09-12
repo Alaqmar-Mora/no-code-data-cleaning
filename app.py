@@ -604,12 +604,13 @@ def main():
                         data=csv_data,
                         file_name=f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv",
-                        use_container_width=True
+                        use_container_width=True,
+                        type="primary"
                     )
                 
                 with col2:
-                    # Excel Download (if openpyxl is available)
-                    if OPENPYXL_AVAILABLE:
+                    # Excel Download (try to create, handle errors gracefully)
+                    try:
                         def create_excel_download():
                             output = io.BytesIO()
                             with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -639,11 +640,11 @@ def main():
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             use_container_width=True
                         )
-                    else:
+                    except ImportError:
                         st.button(
-                            "📊 Excel Export (Install openpyxl)",
+                            "📊 Excel Export",
                             disabled=True,
-                            help="Install openpyxl to enable Excel export",
+                            help="Install openpyxl to enable Excel export: pip install openpyxl",
                             use_container_width=True
                         )
                 
