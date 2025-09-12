@@ -621,7 +621,7 @@ def main():
         st.session_state.show_settings = False
     
     # Check if user is logged in
-    if safe_get_session_state('current_user', None) is None:
+    if st.session_state.current_user is None:
         # Show landing page with authentication
         st.markdown("""
         <div class="main-header">
@@ -690,7 +690,7 @@ def main():
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📁 Upload Data", "🧹 Clean Data", "📊 Results", "📋 Templates", "📈 Analytics"])
     
     with tab1:
-        render_upload_tab(user_manager, user_data)
+        render_upload_tab(user_manager, user_data
 def render_upload_tab(user_manager, user_data):
     """Render the upload data tab"""
     st.markdown("### 📁 Upload Your Data")
@@ -1190,5 +1190,3 @@ def render_analytics_tab(user_data):
 
 if __name__ == "__main__":
     main()
-
-
