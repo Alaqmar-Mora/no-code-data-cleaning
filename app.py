@@ -682,75 +682,196 @@ def main():
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📁 Upload Data", "🧹 Clean Data", "📊 Results", "📋 Templates", "📈 Analytics"])
     
     with tab1:
-        st.markdown("### 📁 Upload Your Data")
-        
-        # Plan-based file upload
-        plan_limits = user_manager.get_plan_limits(user_data['plan'])
-        st.info(f"**{user_data['plan'].title()} Plan**: Max file size {plan_limits['max_file_size_mb']}MB")
-        
-        uploaded_file = st.file_uploader(
-            "Choose your data file",
-            type=['csv', 'xlsx', 'xls'],
-            help=f"Upload files up to {plan_limits['max_file_size_mb']}MB"
-        )
-        
-        if uploaded_file is not None:
-            file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
-            
-            # Check if user can upload this file
-            can_upload, message = user_manager.can_perform_operation(user_data, file_size_mb)
-            
-            if not can_upload:
-                st.error(f"❌ {message}")
-                if user_data['plan'] == 'free':
-                    st.markdown("**🚀 Upgrade to Pro** for 100MB files and 1000 operations per month!")
-                    if st.button("Upgrade Now", type="primary"):
-                        st.session_state.show_settings = True
-                        st.rerun()
-                return
-            
-            try:
-                # Load file based on type
-                if uploaded_file.name.endswith('.csv'):
-                    try:
-                        st.session_state.df = pd.read_csv(uploaded_file, encoding='utf-8')
-                    except UnicodeDecodeError:
-                        uploaded_file.seek(0)
-                        st.session_state.df = pd.read_csv(uploaded_file, encoding='latin-1')
-                
-                elif uploaded_file.name.endswith(('.xlsx', '.xls')):
-                    try:
-                        excel_file = pd.ExcelFile(uploaded_file)
-                        if len(excel_file.sheet_names) > 1:
-                            selected_sheet = st.selectbox("Choose sheet:", excel_file.sheet_names)
-                            st.session_state.df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
-                        else:
-                            st.session_state.df = pd.read_excel(uploaded_file)
-                        
-                        # Clean Excel artifacts
-                        st.session_state.df = st.session_state.df.loc[:, ~st.session_state.df.columns.str.contains('^Unnamed')]
-                        
-                    except ImportError:
-                        st.error("❌ Excel support not available. Install: pip install openpyxl xlrd")
-                        st.info("💡 Convert to CSV and upload instead!")
-                        return
-                
-                # Success - show file info
-                st.success("✅ File loaded successfully!")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Rows", f"{len(st.session_state.df):,}")
-                with col2:
-                    st.metric("Columns", len(st.session_state.df.columns))
-                with col3:
-                    st.metric("Size", f"{file_size_mb:.1f} MB")
-                
-                st.dataframe(st.session_state.df.head(10), use_container_width=True)
-                
-            except Exception as e:
-                st.error(f"❌ Error loading file: {str(e)}")
+def render_upload_tab(user_manager, user_data):
+    """Render the upload data tab"""
+    st.markdown("### 📁 Upload Your Data")
     
-    with tab2:
+    # Plan-based file upload
+    plan_limits = user_manager.get_plan_limits(user_data.get('plan', 'free'))
+    st.info(f"**{user_data.get('plan', 'free').title()} Plan**: Max file size {plan_limits['max_file_size_mb']}MB")
+    
+    uploaded_file = st.file_uploader(
+        "Choose your data file",
+        type=['csv', 'xlsx', 'xls'],
+        help=f"Upload files up to {plan_limits['max_file_size_mb']}MB"
+    )
+    
+    if uploaded_file is not None:
+        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+        
+        # Check if user can upload this file
+        can_upload, message = user_manager.can_perform_operation(user_data, file_size_mb)
+        
+        if not can_upload:
+            st.error(f"❌ {message}")
+            if user_data.get('plan') == 'free':
+                st.markdown("**🚀 Upgrade to Pro** for 100MB files and 1000 operations per month!")
+                if st.button("Upgrade Now", type="primary"):
+                    safe_set_session_state('show_settings', True)
+                    st.rerun()
+            return
+        
+        try:
+            # Load file based on type
+            if uploaded_file.name.endswith('.csv'):
+                try:
+                    df = pd.read_csv(uploaded_file, encoding='utf-8')
+                except UnicodeDecodeError:
+                    uploaded_file.seek(0)
+                    df = pd.read_csv(uploaded_file, encoding='latin-1')
+            
+            elif uploaded_file.name.endswith(('.xlsx', '.xls')):
+                try:
+                    excel_file = pd.ExcelFile(uploaded_file)
+                    if len(excel_file.sheet_names) > 1:
+                        selected_sheet = st.selectbox("Choose sheet:", excel_file.sheet_names)
+                        df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+                    else:
+                        df = pd.read_excel(uploaded_file)
+                    
+                    # Clean Excel artifacts
+                    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+                    
+                except ImportError:
+                    st.error("❌ Excel support not available. Install: pip install openpyxl xlrd")
+                    st.info("💡 Convert to CSV and upload instead!")
+                    return
+            
+            # Store in session state safely
+            safe_set_session_state('df', df)
+            
+            # Success - show file info
+            st.success("✅ File loaded successfully!")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Rows", f"{len(df):,}")
+            with col2:
+                st.metric("Columns", len(df.columns))
+            with col3:
+                st.metric("Size", f"{file_size_mb:.1f} MB")
+            
+            st.dataframe(df.head(10), use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"❌ Error loading file: {str(e)}")
+
+def render_clean_tab(cleaner, user_manager, user_data):
+    """Render the data cleaning tab"""
+    df = safe_get_session_state('df', None)
+    if df is None:
+        st.info("👆 Please upload a file first in the Upload Data tab")
+        return
+    
+    st.markdown("### 🧹 Selective Data Cleaning")
+    
+    # Column selection
+    st.markdown("#### 📊 Choose Columns")
+    all_columns = df.columns.tolist()
+    selected_columns = st.multiselect(
+        "Select columns to clean (leave empty for all):",
+        options=all_columns
+    )
+    
+    # Basic cleaning operations
+    st.markdown("#### 🛠️ Select Operations")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Basic Operations:**")
+        remove_duplicates = st.checkbox("Remove Duplicates")
+        handle_missing = st.checkbox("Handle Missing Values")
+        trim_whitespace = st.checkbox("Trim Whitespace")
+    
+    with col2:
+        st.markdown("**Advanced Operations:**")
+        standardize_text = st.checkbox("Standardize Text")
+        fix_dates = st.checkbox("Fix Dates")
+        remove_outliers = st.checkbox("Remove Outliers")
+    
+    # Apply cleaning
+    if st.button("🧹 Clean Data", type="primary"):
+        # Check operation limits
+        can_clean, message = user_manager.can_perform_operation(user_data, 0)
+        if not can_clean:
+            st.error(f"❌ {message}")
+            return
+        
+        try:
+            working_df = df.copy()
+            operations_applied = []
+            
+            with st.spinner("Cleaning your data..."):
+                if remove_duplicates:
+                    working_df = cleaner.remove_duplicates(working_df, selected_columns)
+                    operations_applied.append("Removed duplicates")
+                
+                if handle_missing:
+                    working_df = cleaner.handle_missing_values(working_df, selected_columns)
+                    operations_applied.append("Handled missing values")
+                
+                if trim_whitespace:
+                    working_df = cleaner.trim_whitespace(working_df, selected_columns)
+                    operations_applied.append("Trimmed whitespace")
+            
+            # Store cleaned data
+            safe_set_session_state('cleaned_df', working_df)
+            
+            # Update usage
+            current_user = safe_get_session_state('current_user')
+            if current_user:
+                user_manager.increment_usage(current_user, 1.0)  # Simplified usage tracking
+            
+            st.success(f"✅ Data cleaned! Applied {len(operations_applied)} operations.")
+            st.balloons()
+            
+        except Exception as e:
+            st.error(f"❌ Cleaning error: {str(e)}")
+
+def render_results_tab(user_manager, user_data):
+    """Render the results tab"""
+    cleaned_df = safe_get_session_state('cleaned_df', None)
+    if cleaned_df is None:
+        st.info("🧹 Clean your data first to see results here")
+        return
+    
+    st.markdown("### 📊 Cleaning Results")
+    st.dataframe(cleaned_df, use_container_width=True, height=400)
+    
+    # Download options
+    st.markdown("### 📥 Download Cleaned Data")
+    csv_data = cleaned_df.to_csv(index=False)
+    st.download_button(
+        "📥 Download CSV",
+        csv_data,
+        f"cleaned_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        "text/csv",
+        use_container_width=True,
+        type="primary"
+    )
+
+def render_templates_tab(user_data):
+    """Render the templates tab"""
+    st.markdown("### 📋 Cleaning Templates")
+    
+    if user_data.get('plan') == 'free':
+        st.info("🚀 Upgrade to Pro to save and reuse cleaning templates!")
+        return
+    
+    st.info("💾 Template features coming soon in next update!")
+
+def render_analytics_tab(user_data):
+    """Render the analytics tab"""
+    st.markdown("### 📈 Analytics & History")
+    
+    # Show basic usage stats
+    usage = user_data.get('usage', {})
+    operations_count = usage.get('operations_this_month', 0)
+    
+    if operations_count > 0:
+        st.metric("Operations This Month", operations_count)
+        st.info("📊 Detailed analytics coming in next update!")
+    else:
+        st.info("📊 No operations performed yet. Start cleaning data to see analytics!")
         if st.session_state.df is None:
             st.info("👆 Please upload a file first in the Upload Data tab")
             return
