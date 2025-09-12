@@ -539,6 +539,10 @@ def render_pricing():
     """Render pricing plans"""
     st.markdown("### 💎 Choose Your Plan")
     
+    current_user = safe_get_session_state('current_user', None)
+    user_data = safe_get_session_state('user_data', {})
+    users = safe_get_session_state('users', {})
+    
     col1, col2, col3 = st.columns(3)
     
     # Free Plan
@@ -556,7 +560,7 @@ def render_pricing():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Current Plan" if st.session_state.user_data['plan'] == 'free' else "Downgrade", key="free_plan", disabled=True):
+        if st.button("Current Plan" if user_data.get('plan') == 'free' else "Downgrade", key="free_plan", disabled=True):
             pass
     
     # Pro Plan
@@ -575,10 +579,12 @@ def render_pricing():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Upgrade to Pro" if st.session_state.user_data['plan'] != 'pro' else "Current Plan", key="pro_plan"):
-            if st.session_state.user_data['plan'] != 'pro':
-                st.session_state.users[st.session_state.current_user]['plan'] = 'pro'
-                st.session_state.user_data['plan'] = 'pro'
+        if st.button("Upgrade to Pro" if user_data.get('plan') != 'pro' else "Current Plan", key="pro_plan"):
+            if user_data.get('plan') != 'pro' and current_user and current_user in users:
+                users[current_user]['plan'] = 'pro'
+                user_data['plan'] = 'pro'
+                safe_set_session_state('users', users)
+                safe_set_session_state('user_data', user_data)
                 st.success("🎉 Upgraded to Pro! (Demo mode)")
                 st.rerun()
     
@@ -598,10 +604,12 @@ def render_pricing():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Upgrade to Enterprise" if st.session_state.user_data['plan'] != 'enterprise' else "Current Plan", key="enterprise_plan"):
-            if st.session_state.user_data['plan'] != 'enterprise':
-                st.session_state.users[st.session_state.current_user]['plan'] = 'enterprise'
-                st.session_state.user_data['plan'] = 'enterprise'
+        if st.button("Upgrade to Enterprise" if user_data.get('plan') != 'enterprise' else "Current Plan", key="enterprise_plan"):
+            if user_data.get('plan') != 'enterprise' and current_user and current_user in users:
+                users[current_user]['plan'] = 'enterprise'
+                user_data['plan'] = 'enterprise'
+                safe_set_session_state('users', users)
+                safe_set_session_state('user_data', user_data)
                 st.success("🎉 Upgraded to Enterprise! (Demo mode)")
                 st.rerun()
 
@@ -682,7 +690,6 @@ def main():
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📁 Upload Data", "🧹 Clean Data", "📊 Results", "📋 Templates", "📈 Analytics"])
     
     with tab1:
-        render_upload_tab(user_manager, user_data)
 def render_upload_tab(user_manager, user_data):
     """Render the upload data tab"""
     st.markdown("### 📁 Upload Your Data")
@@ -1182,4 +1189,3 @@ def render_analytics_tab(user_data):
 
 if __name__ == "__main__":
     main()
-
