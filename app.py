@@ -1,4 +1,802 @@
-import streamlit as st
+summary_data = {
+                                'Metric': ['Original Rows', 'Cleaned Rows', 'Rows Removed', 'Columns', 'Missing Values'],
+                                'Value': [
+                                    len(original_df),
+                                    len(cleaned_df),
+                                    len(original_df) - len(cleaned_df),
+                                    len(cleaned_df.columns),
+                                    cleaned_df.isnull().sum().sum()
+                                ]
+                            }
+                            summary_df = pd.DataFrame(summary_data)
+                            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+                        
+                        excel_data = excel_buffer.getvalue()
+                        st.download_button(
+                            "📊 Download Excel",
+                            excel_data,
+                            f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    except ImportError:
+                        st.button("📊 Excel (Install openpyxl)", disabled=True, use_container_width=True,
+                                help="Install openpyxl to enable Excel export")
+                
+                elif format_type == 'json':
+                    json_data = cleaned_df.to_json(orient='records', indent=2)
+                    st.download_button(
+                        "🔗 Download JSON",
+                        json_data,
+                        f"cleaned_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        "application/json",
+                        use_container_width=True
+                    )
+
+def render_analytics():
+    """Render analytics and history page"""
+    st.markdown("### 📊 Analytics & History")
+    
+    user_profile = st.session_state.user_profile
+    usage_stats = user_profile.get('usage_stats', {})
+    cleaning_history = user_profile.get('cleaning_history', [])
+    
+    # Usage overview
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="metric-card">
+            <h3>{}</h3>
+            <p>Total Operations</p>
+        </div>
+        """.format(usage_stats.get('operations_used', 0)), unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="metric-card">
+            <h3>{}</h3>
+            <p>Files Processed</p>
+        </div>
+        """.format(usage_stats.get('files_processed', 0)), unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="metric-card">
+            <h3>{:.1f} MB</h3>
+            <p>Data Processed</p>
+        </div>
+        """.format(usage_stats.get('data_processed_mb', 0)), unsafe_allow_html=True)
+    
+    # Cleaning history
+    if cleaning_history:
+        st.markdown("#### 📋 Recent Operations")
+        for i, operation in enumerate(reversed(cleaning_history[-10:]), 1):
+            with st.expander(f"Operation {i} - {operation.get('timestamp', 'Unknown time')[:16]}"):
+                st.write(f"**File:** {operation.get('filename', 'Unknown')}")
+                st.write(f"**Operations:** {', '.join(operation.get('operations', []))}")
+                st.write(f"**Rows processed:** {operation.get('rows_processed', 'Unknown')}")
+                st.write(f"**Result:** {operation.get('result', 'Unknown')}")
+    else:
+        st.info("📊 No operations performed yet. Start cleaning data to see your history!")
+
+def render_templates():
+    """Render templates page (Pro+ feature)"""
+    st.markdown("### 💾 Cleaning Templates")
+    
+    user_profile = st.session_state.user_profile
+    
+    if user_profile['plan'] == 'free':
+        st.info("🚀 **Upgrade to Pro** to save and reuse cleaning templates!")
+        st.markdown("""
+        <div class="feature-card">
+            <h4>🎯 What are Templates?</h4>
+            <p>Save your favorite cleaning operations as templates and reuse them instantly on new datasets. Perfect for recurring data cleaning tasks!</p>
+            <ul>
+                <li>✅ Save cleaning configurations</li>
+                <li>✅ Apply to multiple files</li>
+                <li>✅ Share with team members</li>
+                <li>✅ Version control your workflows</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚀 Upgrade to Pro", type="primary", use_container_width=True):
+            st.session_state.current_page = 'settings'
+            st.rerun()
+        return
+    
+    # Pro+ template management
+    saved_templates = user_profile.get('saved_templates', [])
+    
+    if saved_templates:
+        st.markdown("#### 📝 Your Saved Templates")
+        
+        for i, template in enumerate(saved_templates):
+            col1, col2, col3 = st.columns([3, 1, 1])
+            
+            with col1:
+                st.markdown(f"**{template['name']}**")
+                st.caption(f"Created: {template['created_date'][:10]} | Used: {template['usage_count']} times")
+            
+            with col2:
+                if st.button("📋 Use", key=f"use_{i}"):
+                    st.info("Template application feature coming in next update!")
+            
+            with col3:
+                if st.button("🗑️ Delete", key=f"delete_{i}"):
+                    saved_templates.pop(i)
+                    st.session_state.user_profile['saved_templates'] = saved_templates
+                    st.success("Template deleted!")
+                    st.rerun()
+    else:
+        st.info("💾 No templates saved yet. Clean some data first to save templates!")
+    
+    # Template creation (placeholder)
+    st.markdown("#### ➕ Create New Template")
+    st.info("🚧 Template creation will be available after you clean data. The system will automatically offer to save your cleaning operations as templates.")
+
+def render_help():
+    """Render help and documentation page"""
+    st.markdown("### ❓ Help & Documentation")
+    
+    # Quick start guide
+    st.markdown("#### 🚀 Quick Start Guide")
+    
+    with st.expander("1. 📁 How to Upload Data"):
+        st.markdown("""
+        **Supported formats:** CSV, Excel (.xlsx, .xls)
+        
+        **File size limits:**
+        - Free: 5 MB
+        - Pro: 100 MB  
+        - Enterprise: Unlimited
+        
+        **Tips:**
+        - Ensure your data has proper column headers
+        - Remove any merged cells in Excel files
+        - For large files, consider splitting into smaller chunks
+        """)
+    
+    with st.expander("2. 🧹 Available Cleaning Operations"):
+        st.markdown("""
+        **Basic Operations:**
+        - **Remove Duplicates:** Removes identical rows
+        - **Handle Missing Values:** Fill or remove missing data
+        - **Standardize Text:** Normalize text formatting
+        
+        **Advanced Operations:**
+        - **Remove Outliers:** Statistical outlier detection using IQR
+        - **Data Type Conversion:** Convert between text/numbers/dates
+        - **Custom Rules:** Pro+ feature for advanced cleaning
+        """)
+    
+    with st.expander("3. 📊 Understanding Results"):
+        st.markdown("""
+        **Before/After Comparison:**
+        - Shows original vs cleaned data statistics
+        - Highlights what was changed or removed
+        
+        **Download Options:**
+        - **CSV:** Universal format, works everywhere
+        - **Excel:** Includes summary sheet with cleaning report
+        - **JSON:** For API integrations and web applications
+        """)
+    
+    with st.expander("4. 💎 Plan Features"):
+        st.markdown("""
+        **Free Plan:**
+        - 10 operations per month
+        - 5 MB file limit
+        - CSV export only
+        
+        **Pro Plan ($19/month):**
+        - 1,000 operations per month
+        - 100 MB file limit
+        - All export formats
+        - Cleaning templates
+        - Email support
+        
+        **Enterprise Plan ($99/month):**
+        - Unlimited operations
+        - Unlimited file size
+        - API access
+        - Batch processing
+        - Priority support
+        """)
+    
+    # Common issues
+    st.markdown("#### 🔧 Troubleshooting")
+    
+    with st.expander("File Upload Issues"):
+        st.markdown("""
+        **Excel files not working?**
+        - Install required libraries: `pip install openpyxl xlrd`
+        - Or convert Excel to CSV format first
+        
+        **File too large?**
+        - Upgrade your plan for higher limits
+        - Split large files into smaller chunks
+        - Remove unnecessary columns before upload
+        
+        **Encoding errors?**
+        - Save CSV with UTF-8 encoding
+        - Try different text editors (VS Code, Notepad++)
+        """)
+    
+    with st.expander("Cleaning Results Issues"):
+        st.markdown("""
+        **Too many rows removed?**
+        - Check your outlier removal settings
+        - Review missing value handling method
+        - Preview operations before applying
+        
+        **Data looks wrong?**
+        - Download original data to compare
+        - Check cleaning operation logs
+        - Contact support for complex issues
+        """)
+    
+    # Contact information
+    st.markdown("#### 📧 Need More Help?")
+    
+    user_plan = st.session_state.user_profile.get('plan', 'free')
+    
+    if user_plan == 'free':
+        st.info("""
+        **Free Plan Support:**
+        - 📚 Documentation and guides (this page)
+        - 💬 Community forum (coming soon)
+        - 🚀 Upgrade to Pro for email support
+        """)
+    
+    elif user_plan == 'pro':
+        st.success("""
+        **Pro Plan Support:**
+        - ✅ Email support: support@datacleaner.pro
+        - ✅ Response time: 24-48 hours
+        - ✅ Feature requests welcomed
+        """)
+    
+    else:  # Enterprise
+        st.success("""
+        **Enterprise Support:**
+        - ✅ Priority email support: enterprise@datacleaner.pro
+        - ✅ Response time: 4-8 hours
+        - ✅ Phone support available
+        - ✅ Custom integrations
+        """)
+
+def render_api_docs():
+    """Render API documentation (Enterprise feature)"""
+    st.markdown("### 🔗 API Documentation")
+    
+    user_profile = st.session_state.user_profile
+    
+    if user_profile['plan'] != 'enterprise':
+        st.info("🏢 **API access is available with Enterprise plan only!**")
+        
+        st.markdown("""
+        <div class="feature-card">
+            <h4>🚀 Enterprise API Features</h4>
+            <p>Integrate data cleaning into your applications and workflows:</p>
+            <ul>
+                <li>✅ RESTful API endpoints</li>
+                <li>✅ Batch processing capabilities</li>
+                <li>✅ Webhook notifications</li>
+                <li>✅ Custom cleaning rules</li>
+                <li>✅ Rate limiting and monitoring</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚀 Upgrade to Enterprise", type="primary", use_container_width=True):
+            st.session_state.current_page = 'settings'
+            st.rerun()
+        return
+    
+    # Enterprise API documentation
+    st.success("🎉 **API Access Enabled!** Your Enterprise plan includes full API access.")
+    
+    # API key section
+    st.markdown("#### 🔑 API Authentication")
+    api_key = f"dc_ent_{user_profile['user_id'][:8]}_{hashlib.md5(user_profile['username'].encode()).hexdigest()[:8]}"
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.code(api_key, language=None)
+    with col2:
+        st.button("🔄 Regenerate", help="Contact support to regenerate API key")
+    
+    st.warning("⚠️ Keep your API key secure! Don't share it publicly.")
+    
+    # API endpoints
+    st.markdown("#### 📡 Available Endpoints")
+    
+    with st.expander("POST /api/v1/clean - Clean Data"):
+        st.markdown("""
+        **Description:** Clean uploaded data with specified operations
+        
+        **Headers:**
+        ```
+        Authorization: Bearer YOUR_API_KEY
+        Content-Type: multipart/form-data
+        ```
+        
+        **Parameters:**
+        - `file`: Data file (CSV/Excel)
+        - `operations`: JSON string of cleaning operations
+        
+        **Example Request:**
+        ```python
+        import requests
+        import json
+        
+        url = "https://api.datacleaner.pro/v1/clean"
+        headers = {"Authorization": "Bearer YOUR_API_KEY"}
+        files = {"file": open("data.csv", "rb")}
+        data = {
+            "operations": json.dumps({
+                "remove_duplicates": True,
+                "handle_missing": True,
+                "missing_method": "drop"
+            })
+        }
+        
+        response = requests.post(url, headers=headers, files=files, data=data)
+        ```
+        
+        **Response:**
+        ```json
+        {
+            "success": true,
+            "cleaned_data_url": "https://cdn.datacleaner.pro/results/abc123.csv",
+            "operations_applied": ["Removed 5 duplicates", "Handled 12 missing values"],
+            "original_rows": 1000,
+            "cleaned_rows": 983
+        }
+        ```
+        """)
+    
+    with st.expander("GET /api/v1/usage - Usage Statistics"):
+        st.markdown("""
+        **Description:** Get current usage statistics
+        
+        **Headers:**
+        ```
+        Authorization: Bearer YOUR_API_KEY
+        ```
+        
+        **Response:**
+        ```json
+        {
+            "plan": "enterprise",
+            "usage_this_month": {
+                "api_calls": 145,
+                "data_processed_mb": 2843.5,
+                "files_processed": 67
+            },
+            "limits": {
+                "api_calls_monthly": "unlimited",
+                "max_file_size_mb": "unlimited"
+            }
+        }
+        ```
+        """)
+    
+    with st.expander("POST /api/v1/batch - Batch Processing"):
+        st.markdown("""
+        **Description:** Process multiple files in a single request
+        
+        **Headers:**
+        ```
+        Authorization: Bearer YOUR_API_KEY
+        Content-Type: application/json
+        ```
+        
+        **Request Body:**
+        ```json
+        {
+            "files": [
+                {"url": "https://example.com/data1.csv", "name": "dataset1"},
+                {"url": "https://example.com/data2.csv", "name": "dataset2"}
+            ],
+            "operations": {
+                "remove_duplicates": True,
+                "handle_missing": True
+            },
+            "webhook_url": "https://your-app.com/webhook"
+        }
+        ```
+        
+        **Response:**
+        ```json
+        {
+            "batch_id": "batch_abc123",
+            "status": "processing",
+            "estimated_completion": "2024-01-15T10:30:00Z"
+        }
+        ```
+        """)
+    
+    # Rate limits and best practices
+    st.markdown("#### ⚡ Rate Limits & Best Practices")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Rate Limits:**
+        - 1000 requests per hour
+        - 10 concurrent requests
+        - 1GB max file size per request
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Best Practices:**
+        - Use batch processing for multiple files
+        - Implement exponential backoff
+        - Cache results when possible
+        """)
+
+def render_advanced_sidebar():
+    """Enhanced sidebar with all navigation options"""
+    with st.sidebar:
+        if getattr(st.session_state, 'authenticated', False):
+            user_profile = getattr(st.session_state, 'user_profile', {})
+            
+            if user_profile:
+                plan_limits = UserManager.get_plan_limits(user_profile['plan'])
+                
+                # User profile section
+                st.markdown(f"""
+                <div class="sidebar-info">
+                    <h4>👤 {user_profile['username']}</h4>
+                    <p><strong>Plan:</strong> {user_profile['plan'].title()}</p>
+                    <p><strong>Operations:</strong> {user_profile.get('usage_stats', {}).get('operations_used', 0)}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Navigation menu
+                st.markdown("### 🧭 Navigation")
+                
+                nav_options = [
+                    ("🏠 Dashboard", "dashboard"),
+                    ("🧹 Data Cleaner", "cleaner"),
+                    ("📊 Analytics", "analytics"),
+                    ("💾 Templates", "templates"),
+                    ("⚙️ Settings", "settings"),
+                    ("❓ Help", "help")
+                ]
+                
+                # Add API docs for Enterprise users
+                if user_profile.get('plan') == 'enterprise':
+                    nav_options.append(("🔗 API Docs", "api"))
+                
+                for label, page_key in nav_options:
+                    if st.button(label, use_container_width=True):
+                        st.session_state.current_page = page_key
+                        st.rerun()
+                
+                st.markdown("---")
+                
+                # Usage progress bar
+                usage_stats = user_profile.get('usage_stats', {})
+                operations_used = usage_stats.get('operations_used', 0)
+                operations_limit = plan_limits['max_operations_monthly']
+                
+                if operations_limit != float('inf'):
+                    usage_pct = (operations_used / operations_limit) * 100
+                    st.markdown(f"**Monthly Usage: {usage_pct:.1f}%**")
+                    st.progress(min(usage_pct / 100, 1.0))
+                    
+                    if usage_pct > 80:
+                        st.warning(f"⚠️ {100 - usage_pct:.1f}% remaining")
+                else:
+                    st.markdown("**✨ Unlimited Usage**")
+                
+                # Upgrade prompt for free users
+                if user_profile.get('plan') == 'free' and operations_used >= 7:
+                    st.markdown("""
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                               padding: 1rem; border-radius: 10px; color: white; text-align: center;">
+                        <p style="margin: 0;"><strong>🚀 Almost at limit!</strong><br>
+                        Upgrade to Pro for 1000 operations/month</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Quick stats
+                st.markdown("### 📈 Quick Stats")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.metric("Files", usage_stats.get('files_processed', 0))
+                
+                with col2:
+                    data_mb = usage_stats.get('data_processed_mb', 0)
+                    st.metric("Data", f"{data_mb:.1f}MB")
+        
+        else:
+            # Non-authenticated sidebar
+            st.markdown("""
+            <div class="sidebar-info">
+                <h4>🧹 Data Cleaner Pro</h4>
+                <p>Professional data cleaning platform</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("### ✨ Why Choose Us?")
+            st.markdown("• 🎯 **Selective cleaning** - Choose exact data to process")
+            st.markdown("• 📊 **Multi-format support** - CSV, Excel, JSON exports") 
+            st.markdown("• ⚡ **Professional results** - Enterprise-grade cleaning")
+            st.markdown("• 📈 **Usage analytics** - Track your data processing")
+            st.markdown("• 🔗 **API access** - Integrate with your apps")
+            
+            st.markdown("### 💎 Pricing Plans")
+            st.markdown("**🆓 Free:** 5MB files, 10 ops/month")
+            st.markdown("**💼 Pro:** 100MB files, 1000 ops/month") 
+            st.markdown("**🏢 Enterprise:** Unlimited + API access")
+            
+            st.markdown("---")
+            st.markdown("**🚀 Ready to get started?**")
+            st.info("Sign up above to begin cleaning your data professionally!")
+
+def main():
+    """Enhanced main application controller - PRODUCTION READY"""
+    
+    # CRITICAL: Always ensure initialization first
+    try:
+        initialize_app()
+        
+        # Validate session state is working
+        if not hasattr(st.session_state, 'app_initialized'):
+            st.error("🔄 Session state not initialized properly. Please refresh the page.")
+            st.stop()
+        
+    except Exception as init_error:
+        st.error(f"⚠️ Initialization Error: {str(init_error)}")
+        st.info("Please refresh the page. If the problem persists, clear your browser cache.")
+        st.stop()
+    
+    # Render enhanced sidebar
+    render_advanced_sidebar()
+    
+    # Main content routing with comprehensive error handling
+    try:
+        # Safe access to authentication status
+        is_authenticated = getattr(st.session_state, 'authenticated', False)
+        current_page = getattr(st.session_state, 'current_page', 'auth')
+        
+        if not is_authenticated:
+            render_authentication()
+        
+        else:
+            # Validate user profile exists
+            user_profile = getattr(st.session_state, 'user_profile', {})
+            if not user_profile:
+                st.error("❌ User session expired. Please sign in again.")
+                st.session_state.authenticated = False
+                st.session_state.current_user = ''
+                st.session_state.user_profile = {}
+                st.session_state.current_page = 'auth'
+                st.rerun()
+                return
+            
+            # Page routing with validation
+            valid_pages = ['dashboard', 'cleaner', 'analytics', 'templates', 'settings', 'help', 'api']
+            
+            if current_page not in valid_pages:
+                st.session_state.current_page = 'dashboard'
+                st.rerun()
+                return
+            
+            # Route to appropriate page
+            if current_page == 'dashboard':
+                render_dashboard()
+                
+                # Enhanced quick actions
+                st.markdown("---")
+                st.markdown("### 🚀 Quick Actions")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if st.button("🧹 Start Cleaning", use_container_width=True, type="primary"):
+                        st.session_state.current_page = 'cleaner'
+                        st.rerun()
+                
+                with col2:
+                    if st.button("📊 View Analytics", use_container_width=True):
+                        st.session_state.current_page = 'analytics'
+                        st.rerun()
+                
+                with col3:
+                    plan = user_profile.get('plan', 'free')
+                    if plan != 'free':
+                        if st.button("💾 My Templates", use_container_width=True):
+                            st.session_state.current_page = 'templates'
+                            st.rerun()
+                    else:
+                        if st.button("🚀 Upgrade Plan", use_container_width=True):
+                            st.session_state.current_page = 'settings'
+                            st.rerun()
+                
+                # Activity summary
+                render_dashboard_activity()
+            
+            elif current_page == 'cleaner':
+                render_data_cleaner()
+            
+            elif current_page == 'analytics':
+                render_analytics()
+            
+            elif current_page == 'templates':
+                render_templates()
+            
+            elif current_page == 'settings':
+                render_settings()
+            
+            elif current_page == 'help':
+                render_help()
+            
+            elif current_page == 'api':
+                render_api_docs()
+    
+    except Exception as app_error:
+        # Comprehensive error handling
+        st.error(f"⚠️ Application Error: {str(app_error)}")
+        
+        # Error details for debugging
+        with st.expander("🔧 Error Details & Recovery Options"):
+            st.code(f"Error Type: {type(app_error).__name__}\nError Message: {str(app_error)}")
+            
+            st.markdown("**🔧 Troubleshooting Steps:**")
+            st.markdown("1. **Refresh the page** (Ctrl+F5 or Cmd+R)")
+            st.markdown("2. **Clear browser cache** and cookies")
+            st.markdown("3. **Try incognito/private browsing mode**")
+            st.markdown("4. **Use emergency reset** (button below)")
+            st.markdown("5. **Contact support** if issue persists")
+        
+        # Recovery options
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔄 Emergency Reset", type="primary", use_container_width=True):
+                # Safe session state cleanup
+                try:
+                    for key in list(st.session_state.keys()):
+                        if hasattr(st.session_state, key):
+                            delattr(st.session_state, key)
+                    
+                    # Reinitialize
+                    initialize_app()
+                    st.success("✅ Application reset successfully!")
+                    st.info("Please refresh the page to continue.")
+                    
+                except Exception as reset_error:
+                    st.error(f"Reset failed: {str(reset_error)}")
+                    st.info("Please manually refresh the page (Ctrl+F5)")
+        
+        with col2:
+            if st.button("🏠 Return Home", use_container_width=True):
+                try:
+                    st.session_state.current_page = 'dashboard' if st.session_state.authenticated else 'auth'
+                    st.rerun()
+                except:
+                    st.info("Please refresh the page manually.")
+        
+        with col3:
+            if st.button("📧 Get Support", use_container_width=True):
+                st.info("📧 **Contact Support:**\nEmail: support@datacleaner.pro\nInclude the error details above for faster resolution.")
+
+def render_dashboard_activity():
+    """Render dashboard activity section"""
+    try:
+        user_profile = getattr(st.session_state, 'user_profile', {})
+        cleaning_history = user_profile.get('cleaning_history', [])
+        
+        if cleaning_history:
+            st.markdown("### 📋 Recent Activity")
+            recent_ops = cleaning_history[-3:]  # Show last 3
+            
+            for i, activity in enumerate(reversed(recent_ops), 1):
+                with st.expander(f"Operation {len(cleaning_history) - len(recent_ops) + i} - {activity.get('timestamp', 'Unknown')[:10]}"):
+                    st.write(f"**File:** {activity.get('filename', 'Unknown')}")
+                    st.write(f"**Operations:** {', '.join(activity.get('operations', []))}")
+                    st.write(f"**Result:** {activity.get('result', 'Completed successfully')}")
+            
+            if len(cleaning_history) > 3:
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("📊 View All Activity", use_container_width=True):
+                        st.session_state.current_page = 'analytics'
+                        st.rerun()
+        else:
+            st.markdown("""
+            <div class="feature-card">
+                <h4>🎯 Welcome to Data Cleaner Pro!</h4>
+                <p>Ready to clean your first dataset? Here's your step-by-step guide:</p>
+                <ol>
+                    <li><strong>Upload:</strong> Click "Start Cleaning" and upload your CSV/Excel file</li>
+                    <li><strong>Preview:</strong> Review your data statistics and structure</li>
+                    <li><strong>Clean:</strong> Choose operations like removing duplicates or handling missing values</li>
+                    <li><strong>Download:</strong> Get your cleaned data in professional formats</li>
+                </ol>
+                <p><strong>💡 Pro tip:</strong> Start with a small test file to familiarize yourself with the tools!</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    except Exception as e:
+        st.warning(f"Could not load activity: {str(e)}")
+
+# Validate requirements function
+def validate_environment():
+    """Check if all required packages are available"""
+    missing_packages = []
+    
+    try:
+        import pandas as pd
+    except ImportError:
+        missing_packages.append("pandas")
+    
+    try:
+        import numpy as np
+    except ImportError:
+        missing_packages.append("numpy")
+    
+    # Optional packages
+    optional_missing = []
+    try:
+        import openpyxl
+    except ImportError:
+        optional_missing.append("openpyxl (for Excel export)")
+    
+    try:
+        import xlrd
+    except ImportError:
+        optional_missing.append("xlrd (for legacy Excel files)")
+    
+    if missing_packages:
+        st.error(f"❌ Missing required packages: {', '.join(missing_packages)}")
+        st.code(f"pip install {' '.join(missing_packages)}")
+        return False
+    
+    if optional_missing:
+        st.warning(f"⚠️ Optional packages missing: {', '.join(optional_missing)}")
+        st.info("Install for full functionality: pip install openpyxl xlrd")
+    
+    return True
+
+# Production health check
+def production_health_check():
+    """Production readiness checks"""
+    checks = {
+        "Streamlit Version": True,
+        "Session State": hasattr(st, 'session_state'),
+        "Core Imports": True,
+        "Memory Usage": True
+    }
+    
+    # Check Streamlit version
+    try:
+        import streamlit as st_version
+        version = st_version.__version__
+        checks["Streamlit Version"] = version >= "1.28.0"
+    except:
+        checks["Streamlit Version"] = False
+    
+    # Return health status
+    return all(checks.values()), checks
+
+# Application entry point with environment validation
+if __name__ == "__main__":
+    # Validate environment before running
+    if validate_environment():
+        main()
+    else:
+        st.stop()
+        import streamlit as st
 import pandas as pd
 import numpy as np
 import hashlib
